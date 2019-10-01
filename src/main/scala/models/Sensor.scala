@@ -1,9 +1,11 @@
 package models
 
-import scala.math.{max,min}
+import cats.Semigroup
+
+import scala.math.{max, min}
 import cats.implicits._
 
-case class SensorData(id: String, value: Option[Int])
+
 
 case class Sensor(id: String, sum: Option[Int], count: Int, maxVal: Option[Int], minVal: Option[Int]) {
   def addValue(value: Option[Int]) =
@@ -34,4 +36,14 @@ object Sensor {
     val avg2: Double = s2.sum.map(_.toDouble / s2.count).getOrElse(-1.0)
     avg1 > avg2
   }
+  def add(s1: Sensor, s2: Sensor) =
+    Sensor(
+      s1.id,
+      if (s1.sum.isDefined || s2.sum.isDefined) Some(s1.sum.getOrElse(0) + s2.sum.getOrElse(0)) else None,
+      s1.count + s2.count,
+      if (s1.maxVal.isDefined || s2.maxVal.isDefined) Some(max(s1.maxVal.getOrElse(-1), s2.maxVal.getOrElse(-1))) else None,
+      if (s1.minVal.isDefined || s2.minVal.isDefined) Some(min(s1.minVal.getOrElse(101), s2.minVal.getOrElse(101))) else None,
+    )
 }
+
+

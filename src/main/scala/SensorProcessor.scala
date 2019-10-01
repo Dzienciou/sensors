@@ -1,7 +1,7 @@
 import java.io.File
 
 import cats.implicits._
-import models.{Counter, Sensor, SensorData, SensorStatistics}
+import models.{Sensor, SensorData, SensorStatistics}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}

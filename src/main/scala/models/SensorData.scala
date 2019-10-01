@@ -1,5 +1,3 @@
 package models
 
-class SensorData {
-
-}
+case class SensorData(id: String, value: Option[Int])
