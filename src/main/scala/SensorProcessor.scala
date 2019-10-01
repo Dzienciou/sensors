@@ -1,7 +1,7 @@
 import java.io.File
 
 import cats.implicits._
-import models.{Counter, Sensor, SensorData}
+import models.{Counter, Sensor, SensorData, SensorStatistics}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -12,9 +12,8 @@ object SensorProcessor {
 
   def readFile(fileName: String) = {
     val source = io.Source.fromFile(fileName)
-    val lines = source.getLines.toSeq
-    source.close()
-    lines.slice(1, lines.size)
+    val lines = source.getLines
+    lines.drop(1)
   }
 
   def parseLine(line: String) = {
@@ -28,7 +27,6 @@ object SensorProcessor {
   def getListOfFiles(dir: String) = {
     val d = new File(dir)
     if (d.exists && d.isDirectory) {
-      println(d.listFiles.filter(_.isFile).toSeq)
       d.listFiles.filter(_.isFile).toSeq
     } else {
       Seq.empty
@@ -37,32 +35,24 @@ object SensorProcessor {
 
   def getData(path: String) = {
     val filePaths = getListOfFiles(path)
-    val linesFtr = Future.sequence (
-      filePaths.map( path => Future { readFile(path.getPath).map(parseLine) collect {case Some(v) => v}}))
-
-    linesFtr.map(sensorList =>
-      (Counter(
-        sensorList.length,
-        sensorList.flatten.length,
-        sensorList.flatten.map(_.value).collect{ case None => None }.length
-      ),
-      sensorList.flatten.foldLeft(Map.empty[String, Sensor])((m, nextData) =>
-      m.updated(
-        nextData.id,
-        m.getOrElse(nextData.id, Sensor.empty(nextData.id))
-          .addValue(nextData.value))
-      )
-      )
-    )
+    Future.sequence (
+      filePaths.map( path => Future {
+        readFile(path.getPath)
+          .map(parseLine)
+          .collect{case Some(v) => v}
+          .foldLeft(SensorStatistics.empty)((stat, nextData) => stat.update(nextData))
+      }))
+      .map(l => (l.size, l.fold(SensorStatistics.empty)((s1, s2) => SensorStatistics.add(s1, s2))))
   }
 
   def main(args: Array[String]): Unit = {
     val path = args(0)
     val ftr = getData(path)
     Await.ready(ftr.map(result => {
-      println(result._1)
+      println(s"Num of processed files: ${result._1}")
+      println(result._2.counter)
       println("Sensors with highest avg humidity:")
-      result._2.values.toSeq.sortWith(Sensor.compare).map(println)
+      result._2.sensors.values.toSeq.sortWith(Sensor.compare).map(println)
     }
     ), Duration.Inf)
   }
